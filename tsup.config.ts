@@ -6,7 +6,8 @@ export default defineConfig({
   esbuildOptions(options) {
     options.banner = { js: "#!/usr/bin/env node" };
   },
-  format: ["cjs"],
+  format: ["esm"],
   minify: true,
   sourcemap: true,
+  target: "node18",
 });

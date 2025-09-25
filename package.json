@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A CLI tool for creating and deploying your own Pocket Network gateway in minutes.",
   "main": "index.js",
+  "type": "module",
   "bin": {
     "create-pokt-gateway": "dist/index.js"
   },
@@ -12,13 +13,20 @@
     "postbuild": "chmod +x dist/index.js || true",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.5.2",
     "tsup": "^8.5.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "picocolors": "^1.1.1"
   }
 }
