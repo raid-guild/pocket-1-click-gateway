@@ -1,16 +1,16 @@
 {
-  "name": "create-pokt-gateway",
+  "name": "create-pokt-gateway-dev",
   "version": "0.0.1-alpha.0",
   "description": "A CLI tool for creating and deploying your own Pocket Network gateway in minutes.",
   "main": "index.js",
   "type": "module",
   "bin": {
-    "create-pokt-gateway": "dist/index.js"
+    "create-pokt-gateway-dev": "dist/index.js"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup",
-    "prepublishOnly": "pnpm build",
+    "prepublishOnly": "npm run build",
     "postbuild": "chmod +x dist/index.js || true",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
