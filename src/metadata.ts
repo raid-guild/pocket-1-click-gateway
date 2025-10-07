@@ -16,9 +16,6 @@ export interface ProjectMetadata {
   createdAtIso: string;
 }
 
-// ---------- helpers ----------
-const isTTY = Boolean(process.stdin.isTTY && process.stdout.isTTY);
-
 function normalizeDomain(input: string | null | undefined) {
   if (!input) return null;
   let t = input.trim().toLowerCase();
@@ -28,9 +25,9 @@ function normalizeDomain(input: string | null | undefined) {
 }
 
 function domainLooksValid(val: string) {
-  // Accepts FQDNs and localhost[:port]
-  const re = /^(?!-)([a-z0-9-]{1,63}\.)+[a-z]{2,}$/i;
-  const localhostRe = /^(localhost|localhost:\d{2,5})$/i;
+  // Accepts FQDNs (labels: start/end with alphanumeric, may contain hyphens)
+  const re = /^(?!-)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+  const localhostRe = /^(localhost|localhost:\d{1,5})$/i;
   return re.test(val) || localhostRe.test(val);
 }
 
@@ -62,81 +59,109 @@ function normalizeFrontendHosting(meta: ProjectMetadata) {
   }
 }
 
+// Prompt factories for reuse in askAll and editLoop
+const prompts = {
+  projectName: (initialValue?: string) =>
+    p.text({
+      message: "Project name",
+      placeholder: "my-pokt-gateway",
+      initialValue,
+      validate(v) {
+        if (!v?.trim()) return "Please enter a project name.";
+        if (v.length > 64) return "Keep it under 64 characters.";
+      },
+    }),
+
+  network: (initialValue?: Network) =>
+    p.select({
+      message: "Network",
+      options: [
+        { value: "mainnet", label: "mainnet" },
+        { value: "testnet", label: "testnet" },
+      ],
+      initialValue: initialValue ?? "testnet",
+    }),
+
+  deploymentType: (initialValue?: DeploymentType) =>
+    p.select({
+      message: "Deployment type",
+      options: [
+        { value: "vps", label: "Hosted VPS (DigitalOcean)" },
+        { value: "local", label: "Local only (dev/test)" },
+      ],
+      initialValue: initialValue ?? "vps",
+    }),
+
+  frontendHosting: (
+    deploymentType: DeploymentType,
+    initialValue?: FrontendHosting
+  ) => {
+    const options =
+      deploymentType === "local"
+        ? [
+            { value: "vercel", label: "Deploy separately to Vercel" },
+            { value: "skip", label: "Skip for now" },
+          ]
+        : [
+            { value: "same-vps", label: "Deploy to same VPS" },
+            { value: "vercel", label: "Deploy separately to Vercel" },
+            { value: "skip", label: "Skip for now" },
+          ];
+    return p.select({
+      message: "Frontend hosting",
+      options,
+      initialValue:
+        initialValue ?? (deploymentType === "local" ? "vercel" : "same-vps"),
+    });
+  },
+
+  domain: (initialValue?: string | null) =>
+    p.text({
+      message:
+        initialValue === undefined
+          ? "Domain name (optional, for HTTPS setup)"
+          : "Domain (blank to clear)",
+      placeholder:
+        initialValue === undefined ? "api.example.com (or leave blank)" : "",
+      initialValue: initialValue ?? "",
+      validate(v) {
+        const t = normalizeDomain(v);
+        if (!t) return; // optional, blank OK
+        if (!domainLooksValid(t)) {
+          return "Please enter a valid domain (e.g., api.example.com) or leave blank.";
+        }
+      },
+    }),
+
+  integrations: (initialValues?: Integration[]) =>
+    p.multiselect({
+      message:
+        "Optional integrations (Use ↑/↓ to move, Space to toggle, Enter to confirm)",
+      options: [
+        { value: "stripe", label: "Stripe billing" },
+        { value: "auth", label: "Auth modules" },
+      ],
+      initialValues,
+      required: false,
+    }),
+};
+
 // ---------- main prompts ----------
 async function askAll(): Promise<ProjectMetadata | null> {
   const result = await p.group(
     {
-      projectName: () =>
-        p.text({
-          message: "Project name",
-          placeholder: "my-pokt-gateway",
-          validate(v) {
-            if (!v?.trim()) return "Please enter a project name.";
-            if (v.length > 64) return "Keep it under 64 characters.";
-          },
-        }),
+      projectName: () => prompts.projectName(),
 
-      network: () =>
-        p.select({
-          message: "Network",
-          options: [
-            { value: "mainnet", label: "mainnet" },
-            { value: "testnet", label: "testnet" },
-          ],
-          initialValue: "testnet",
-        }),
+      network: () => prompts.network(),
 
-      deploymentType: () =>
-        p.select({
-          message: "Deployment type",
-          options: [
-            { value: "vps", label: "Hosted VPS (DigitalOcean)" },
-            { value: "local", label: "Local only (dev/test)" },
-          ],
-          initialValue: "vps",
-        }),
+      deploymentType: () => prompts.deploymentType(),
 
       frontendHosting: ({ results }) =>
-        p.select({
-          message: "Frontend hosting",
-          options:
-            results.deploymentType === "local"
-              ? [
-                  { value: "vercel", label: "Deploy separately to Vercel" },
-                  { value: "skip", label: "Skip for now" },
-                ]
-              : [
-                  { value: "same-vps", label: "Deploy to same VPS" },
-                  { value: "vercel", label: "Deploy separately to Vercel" },
-                  { value: "skip", label: "Skip for now" },
-                ],
-          initialValue:
-            results.deploymentType === "local" ? "vercel" : "same-vps",
-        }),
+        prompts.frontendHosting(results.deploymentType as DeploymentType),
 
-      domain: () =>
-        p.text({
-          message: "Domain name (optional, for HTTPS setup)",
-          placeholder: "api.example.com (or leave blank)",
-          validate(v) {
-            const t = normalizeDomain(v);
-            if (!t) return; // optional, blank OK
-            if (!domainLooksValid(t)) {
-              return "Please enter a valid domain (e.g., api.example.com) or leave blank.";
-            }
-          },
-        }),
+      domain: () => prompts.domain(),
 
-      integrations: () =>
-        p.multiselect({
-          message:
-            "Optional integrations (Use ↑/↓ to move, Space to toggle, Enter to confirm)",
-          options: [
-            { value: "stripe", label: "Stripe billing" },
-            { value: "auth", label: "Auth modules" },
-          ],
-          required: false,
-        }),
+      integrations: () => prompts.integrations(),
     },
     { onCancel: () => p.cancel("Setup cancelled.") }
   );
@@ -193,83 +218,30 @@ async function editLoop(
     if (isCancel(field)) continue;
 
     if (field === "projectName") {
-      const v = await p.text({
-        message: "Project name",
-        initialValue: meta.projectName,
-        validate(v) {
-          if (!v?.trim()) return "Please enter a project name.";
-          if (v.length > 64) return "Keep it under 64 characters.";
-        },
-      });
+      const v = await prompts.projectName(meta.projectName);
       if (!isCancel(v)) meta.projectName = v.trim();
     } else if (field === "network") {
-      const v = await p.select({
-        message: "Network",
-        options: [
-          { value: "mainnet", label: "mainnet" },
-          { value: "testnet", label: "testnet" },
-        ],
-        initialValue: meta.network,
-      });
+      const v = await prompts.network(meta.network);
       if (!isCancel(v)) meta.network = v as Network;
     } else if (field === "deploymentType") {
-      const v = await p.select({
-        message: "Deployment type",
-        options: [
-          { value: "vps", label: "Hosted VPS (DigitalOcean)" },
-          { value: "local", label: "Local only (dev/test)" },
-        ],
-        initialValue: meta.deploymentType,
-      });
+      const v = await prompts.deploymentType(meta.deploymentType);
       if (!isCancel(v)) {
         meta.deploymentType = v as DeploymentType;
         normalizeFrontendHosting(meta);
       }
     } else if (field === "frontendHosting") {
-      const options =
-        meta.deploymentType === "local"
-          ? [
-              { value: "vercel", label: "Deploy separately to Vercel" },
-              { value: "skip", label: "Skip for now" },
-            ]
-          : [
-              { value: "same-vps", label: "Deploy to same VPS" },
-              { value: "vercel", label: "Deploy separately to Vercel" },
-              { value: "skip", label: "Skip for now" },
-            ];
-      const v = await p.select({
-        message: "Frontend hosting",
-        options,
-        initialValue:
-          meta.deploymentType === "local" && meta.frontendHosting === "same-vps"
-            ? "vercel"
-            : meta.frontendHosting,
-      });
+      const v = await prompts.frontendHosting(
+        meta.deploymentType,
+        meta.deploymentType === "local" && meta.frontendHosting === "same-vps"
+          ? "vercel"
+          : meta.frontendHosting
+      );
       if (!isCancel(v)) meta.frontendHosting = v as FrontendHosting;
     } else if (field === "domain") {
-      const v = await p.text({
-        message: "Domain (blank to clear)",
-        initialValue: meta.domain ?? "",
-        validate(val) {
-          const t = normalizeDomain(val);
-          if (!t) return; // blank is ok
-          if (!domainLooksValid(t)) {
-            return "Please enter a valid domain or leave blank.";
-          }
-        },
-      });
-      if (!isCancel(v)) meta.domain = normalizeDomain(v) ?? null;
+      const v = await prompts.domain(meta.domain);
+      if (!isCancel(v)) meta.domain = normalizeDomain(v);
     } else if (field === "integrations") {
-      const v = await p.multiselect({
-        message:
-          "Optional integrations (Use ↑/↓ to move, Space to toggle, Enter to confirm)",
-        options: [
-          { value: "stripe", label: "Stripe billing" },
-          { value: "auth", label: "Auth modules" },
-        ],
-        initialValues: meta.integrations,
-        required: false,
-      });
+      const v = await prompts.integrations(meta.integrations);
       if (!isCancel(v)) meta.integrations = (v as Integration[]) ?? [];
     }
   }
