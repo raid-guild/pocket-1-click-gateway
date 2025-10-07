@@ -151,7 +151,7 @@ export async function runPreflightOrExit(): Promise<void> {
   s.stop(git.ok ? `Git ✓ (${git.version})` : "Git ✗");
 
   s.start("Checking Docker");
-  const docker = checkDocker(false);
+  const docker = checkDocker(true);
   s.stop(docker.ok ? `Docker ✓ (${docker.version})` : "Docker ✗");
 
   s.start("Checking pocketd");
