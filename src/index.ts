@@ -2,6 +2,7 @@ import * as p from "@clack/prompts";
 import { isCancel } from "@clack/prompts";
 import pc from "picocolors";
 import { runPreflightOrExit } from "./preflight";
+import { collectProjectMetadata } from "./metadata";
 
 // If someone runs via non-interactive shell (CI), degrade gracefully
 const isTTY = process.stdout.isTTY && process.stdin.isTTY;
@@ -36,6 +37,9 @@ async function main() {
     await pressEnterToContinue();
 
     await runPreflightOrExit();
+
+    const meta = await collectProjectMetadata();
+    if (!meta) process.exit(1);
 
     p.outro(pc.dim("That’s all for now — exiting."));
   } else {

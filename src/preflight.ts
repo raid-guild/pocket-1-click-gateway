@@ -128,7 +128,7 @@ function checkPocketd(required = true): CheckResult {
         ok: false,
         name: "pocketd",
         required,
-        reason: "Not found in PATH",
+        reason: "Not found",
         hint: "Install the Pocketd CLI, then re-run 1-Click Gateway in your terminal.",
         helpUrl:
           "https://dev.poktroll.com/explore/account_management/pocketd_cli",
