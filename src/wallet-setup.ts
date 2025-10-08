@@ -24,6 +24,7 @@ async function writeSecureJson(relPath: string, data: unknown) {
   const json = JSON.stringify(data, null, 2);
 
   await fs.writeFile(tmpFile, json, { mode: 0o600 });
+  await fs.rm(filePath, { force: true }).catch(() => {});
   await fs.rename(tmpFile, filePath);
 
   return filePath;
