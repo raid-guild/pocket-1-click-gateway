@@ -1,20 +1,12 @@
 import * as p from "@clack/prompts";
 import { isCancel } from "@clack/prompts";
-
-export type Network = "mainnet" | "testnet";
-export type DeploymentType = "vps" | "local";
-export type FrontendHosting = "same-vps" | "vercel" | "skip";
-export type Integration = "stripe" | "auth";
-
-export interface ProjectMetadata {
-  projectName: string;
-  network: Network;
-  deploymentType: DeploymentType;
-  frontendHosting: FrontendHosting;
-  domain?: string | null;
-  integrations: Integration[];
-  createdAtIso: string;
-}
+import {
+  Network,
+  DeploymentType,
+  FrontendHosting,
+  Integration,
+  ProjectMetadata,
+} from "./types";
 
 function normalizeDomain(input: string | null | undefined) {
   if (!input) return null;

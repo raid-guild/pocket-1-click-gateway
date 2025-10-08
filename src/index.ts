@@ -3,6 +3,7 @@ import { isCancel } from "@clack/prompts";
 import pc from "picocolors";
 import { runPreflightOrExit } from "./preflight";
 import { collectProjectMetadata } from "./metadata";
+import { runWalletSetup } from "./wallet-setup";
 
 // If someone runs via non-interactive shell (CI), degrade gracefully
 const isTTY = process.stdout.isTTY && process.stdin.isTTY;
@@ -24,7 +25,7 @@ async function main() {
     p.intro(
       pc.cyan(
         pc.bold(
-          "🛠️  Welcome to the Pocket Gateway Installer (Shannon Protocol)"
+          "🛠️  Welcome to the Pocket 1-Click Gateway Launcher (Shannon Protocol)"
         )
       )
     );
@@ -41,13 +42,15 @@ async function main() {
     const meta = await collectProjectMetadata();
     if (!meta) process.exit(1);
 
+    const { network } = meta;
+    const result = await runWalletSetup(network);
+    if (!result) return;
+
     p.outro(pc.dim("That’s all for now — exiting."));
   } else {
     // Non-TTY fallback (e.g., piping or CI)
     console.log(
-      "🛠️  Welcome to the Pocket Gateway Installer (Shannon Protocol)\n\n" +
-        "This CLI will guide you through creating your Gateway and Application wallets,\n" +
-        "staking them, and deploying both the PATH backend and the Portal frontend.\n"
+      "The Pocket 1-Click Gateway Launcher requires an interactive terminal."
     );
   }
 
